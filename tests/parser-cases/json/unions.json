@@ -1,0 +1,15 @@
+{
+  "typedefs": {},
+  "includes": [],
+  "namespaces": {},
+  "structs": {},
+  "consts": {},
+  "services": {},
+  "exceptions": {},
+  "enums": {},
+  "unions": {
+    "Sample": {
+
+    }
+  }
+}
