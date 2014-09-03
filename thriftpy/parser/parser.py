@@ -3,9 +3,9 @@
 # ref: https://thrift.apache.org/docs/idl
 
 from ply import yacc
-from . import ThriftSyntaxError
 from .lexer import tokens
 from .model import *
+from . import ThriftGrammerError
 
 
 def p_error(p):
