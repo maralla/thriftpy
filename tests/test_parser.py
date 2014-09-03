@@ -5,7 +5,6 @@ import os
 import sys
 import json
 
-sys.path.insert(0, '..')
 from thriftpy import parse
 
 
@@ -16,14 +15,17 @@ def _json(name):
 
 def _thrift(name):
     path = os.path.join('parser-cases', 'thrift', name + '.thrift')
-    return parse(open(path).read())
+    dct = parse(open(path).read())
+    del dct['__hash__']
+    del dct['__python__']
+    del dct['__version__']
+    return dct
 
 
 class TestParser(object):
 
     def case(name):
         def _case(self):
-            print _thrift(name)
             assert _thrift(name) == _json(name)
         return _case
 
@@ -33,3 +35,7 @@ class TestParser(object):
     test_consts = case('consts')
     test_typedefs = case('typedefs')
     test_enums = case('enums')
+    test_unions = case('unions')
+    test_structs = case('structs')
+    test_exceptions = case('exceptions')
+    test_serices = case('services')
