@@ -5,7 +5,7 @@ from setuptools import setup, find_packages
 from setuptools.extension import Extension
 
 install_requires = [
-    "pyparsing>=2.0.2,<2.1.0",
+    "ply",
 ]
 
 tornado_requires = [
