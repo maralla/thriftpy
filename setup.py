@@ -5,7 +5,7 @@ from setuptools import setup, find_packages
 from setuptools.extension import Extension
 
 install_requires = [
-    "ply",
+    "ply>=3.4",
 ]
 
 tornado_requires = [
