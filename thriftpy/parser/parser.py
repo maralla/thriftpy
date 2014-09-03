@@ -121,11 +121,10 @@ def p_enum(p):
 
     dct = dict(p[4])
     num = 0
-    vals = dct.values()
 
     for key in dct:
         if dct[key] is None:
-            while num in vals:
+            while num in dct.values():
                 num += 1
             dct[key] = num
 
