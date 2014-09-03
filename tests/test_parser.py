@@ -39,3 +39,4 @@ class TestParser(object):
     test_structs = case('structs')
     test_exceptions = case('exceptions')
     test_serices = case('services')
+    test_tutorial = case('tutorial')
