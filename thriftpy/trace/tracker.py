@@ -8,7 +8,7 @@ ctx = threading.local()
 
 
 class TrackerBase(object):
-    def __init__(self, client, server):
+    def __init__(self, client=None, server=None):
         self.client = client
         self.server = server
 
@@ -34,7 +34,7 @@ class TrackerBase(object):
         self.record(header)
 
     def record(self, header):
-        raise NotImplementedError
+        pass
 
 
 class ConsoleTracker(TrackerBase):

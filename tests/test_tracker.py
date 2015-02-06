@@ -240,10 +240,6 @@ def test_tracker_chain(server, server1, server2, dbm_db):
     header1 = pickle.loads(db[headers[1]])
     header2 = pickle.loads(db[headers[2]])
 
-    for h in (header0, header1, header2):
-        h.pop("start")
-        h.pop("end")
-
     assert header0["request_id"] == header1["request_id"] == \
         header2["request_id"] == headers[0].decode("ascii").split(':')[0]
     assert header0["seq"] == 0 and header1["seq"] == 1 and header2["seq"] == 2
