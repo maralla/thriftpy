@@ -76,8 +76,7 @@ def http_entity():
             self.line = "HTTP/1.1 200 OK"
 
             self.headers = [
-                "Content-Type: application/json",
-                "Content-Encoding: UTF-8",
+                "Content-Type: application/json; charset=utf-8",
                 "Connection: keep-alive",
             ]
 
@@ -92,43 +91,43 @@ def http_entity():
 def test_serialize_args_bool():
     with Item.set_spec(TType.BOOL):
         a = serialize_args(Item(True))
-    assert ['true'] == a
+    assert {'a': 'true'} == a
 
 
 def test_serialize_args_i32():
     with Item.set_spec(TType.I32):
         a = serialize_args(Item(123))
-    assert ['123'] == a
+    assert {'a': '123'} == a
 
 
 def test_serialize_args_double():
     with Item.set_spec(TType.DOUBLE):
         a = serialize_args(Item(123.234235))
-    assert ['123.234235'] == a
+    assert {'a': '123.234235'} == a
 
 
 def test_serialize_args_string():
     with Item.set_spec(TType.STRING):
         a = serialize_args(Item("hello"))
-    assert ['"hello"'] == a
+    assert {'a': '"hello"'} == a
 
 
 def test_serialize_args_list():
     with Item.set_spec(TType.LIST, TType.STRING):
         a = serialize_args(Item(["hello", "world"]))
-    assert ['["hello", "world"]'] == a
+    assert {'a': '["hello", "world"]'} == a
 
 
 def test_serialize_args_map():
     with Item.set_spec(TType.MAP, (TType.STRING, TType.STRING)):
         a = serialize_args(Item({"hello": "world"}))
-    assert ['{"hello": "world"}'] == a
+    assert {'a': '{"hello": "world"}'} == a
 
 
 def test_serialize_args_struct():
     with Item.set_spec(TType.STRUCT, User):
         a = serialize_args(Item(User(name="hello", id=123)))
-    assert {"name": "hello", "id": 123} == json.loads(a[0])
+    assert {"name": "hello", "id": 123} == json.loads(a['a'])
 
 
 def test_map_convert():
@@ -158,11 +157,11 @@ def test_write_message(http_entity):
 
     headers = set((b'', b'POST /rpc HTTP/1.1',
                    b'Connection: Keep-Alive',
-                   b'Content-Length: 85',
+                   b'Content-Length: 99',
                    b'Content-Encoding: UTF-8',
                    b'Content-type: application/json'))
     payload = {"soa": {}, "metas": {}, "method": "get", "ver": "1.0",
-               "args": ['"hello"', "123"]}
+               "args": {"name": '"hello"', "id": "123"}}
 
     val = t.getvalue().split(b"\r\n")
 

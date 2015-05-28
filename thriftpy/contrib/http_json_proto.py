@@ -37,11 +37,14 @@ thrift -> json:
     }
 
 args:
+    def ping(a, b, c):
+        pass
+
     c.ping(23, "ping", User(name="jane", id=10032))
 
     =>
 
-    ["23", '"ping"', "{\"name\": \"jane\", \"id\": 10032}"]
+    {"a": "23", "b": '"ping"', "c": "{\"name\": \"jane\", \"id\": 10032}"}
 """
 
 
@@ -52,6 +55,7 @@ try:
 except ImportError:
     import http.client as httplib
 
+import cgi
 import json
 
 from thriftpy.protocol.exc import TProtocolException
@@ -159,7 +163,7 @@ class Converter(JsonConverter):
 
 
 def serialize_args(struct):
-    args = []
+    args = {}
 
     for fid in sorted(struct.thrift_spec):
         field_spec = struct.thrift_spec[fid]
@@ -170,7 +174,7 @@ def serialize_args(struct):
         if v is not None:
             v = Converter.json_value(ttype, v, type_spec)
 
-        args.append(json.dumps(v))
+        args[field_name] = json.dumps(v)
 
     return args
 
@@ -190,7 +194,7 @@ class THTTPJsonProtocol(object):
             "ver": VERSION,
             "soa": {},
             "method": '',
-            "args": [],
+            "args": {},
             "metas": {}
         }
 
@@ -214,17 +218,18 @@ class THTTPJsonProtocol(object):
         response = httplib.HTTPResponse(_Stream(self.trans))
         response.begin()
 
-        assert response.status == 200
+        assert response.status == 200, "Bad response"
 
-        content_encoding = response.getheader("Content-Encoding")
-        content_type = response.getheader("Content-Type")
+        content_type, params = cgi.parse_header(
+            response.getheader("Content-Type"))
 
-        assert content_type == "application/json"
+        assert content_type == "application/json", "Content type not json"
 
         payload = response.read()
-        val = json.loads(payload.decode(content_encoding))
+        encoding = params.get("charset", "utf-8")
+        val = json.loads(payload.decode(encoding))
 
-        assert val["ver"] == VERSION
+        assert val["ver"] == VERSION, "Version mismatch"
 
         self._payload = val
 
@@ -243,13 +248,11 @@ class THTTPJsonProtocol(object):
         assert self._writing
 
         self._writing = False
-        data = json.dumps(self.data)
+        data = json.dumps(self.data).encode("utf-8")
 
         self.headers["Content-Length"] = len(data)
-
         http = _JsonHTTP(self.trans)
-        http.request("POST", self.uri, body=data.encode("utf-8"),
-                     headers=self.headers)
+        http.request("POST", self.uri, body=data, headers=self.headers)
 
     def read_struct(self, obj):
         assert hasattr(self, "_payload") and self._payload
