@@ -2,10 +2,11 @@ import json
 import contextlib
 import pytest
 
-from thriftpy.contrib.http_json_proto import serialize_args, Converter, \
-    TProtocolException, THTTPJsonProtocol, HTTPJsonException
-from thriftpy.thrift import TPayload, TType, TMessageType
 from thriftpy.transport import TMemoryBuffer
+from thriftpy.thrift import TPayload, TType, TMessageType
+from thriftpy.contrib.http import THTTPJsonProtocol, HTTPJsonException
+from thriftpy.contrib.http.json_proto import serialize_args, Converter, \
+    TProtocolException
 
 
 class User(TPayload):
@@ -155,13 +156,13 @@ def test_write_message(http_entity):
     p.write_struct(user)
     p.write_message_end()
 
+    payload = {"soa": {}, "metas": {}, "iface": '', "method": "get",
+               "ver": "1.0", "args": {"name": '"hello"', "id": "123"}}
     headers = set((b'', b'POST /rpc HTTP/1.1',
                    b'Connection: Keep-Alive',
-                   b'Content-Length: 99',
+                   ('Content-Length: %d' % len(json.dumps(payload))).encode("ascii"),  # noqa
                    b'Content-Encoding: UTF-8',
                    b'Content-type: application/json'))
-    payload = {"soa": {}, "metas": {}, "method": "get", "ver": "1.0",
-               "args": {"name": '"hello"', "id": "123"}}
 
     val = t.getvalue().split(b"\r\n")
 

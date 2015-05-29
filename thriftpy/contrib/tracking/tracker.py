@@ -74,4 +74,4 @@ class TrackerBase(object):
 
 class ConsoleTracker(TrackerBase):
     def record(self, header, exception):
-        print(header)
+        print(header.__dict__)

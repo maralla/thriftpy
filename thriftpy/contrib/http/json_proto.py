@@ -122,12 +122,6 @@ class _Stream(object):
             raise HTTPJsonException("`size` must be greater or equal than 0")
         return self.stream.read(size)
 
-    def fileno(self):
-        raise HTTPJsonException("Not supported")
-
-    def unread(self):
-        raise HTTPJsonException("Not supported")
-
 
 class Converter(JsonConverter):
     COMPLEX = (TType.STRUCT, TType.SET, TType.LIST, TType.MAP)
@@ -190,13 +184,7 @@ class THTTPJsonProtocol(object):
         self.trans = trans
         self.uri = uri
 
-        self.data = {
-            "ver": VERSION,
-            "soa": {},
-            "method": '',
-            "args": {},
-            "metas": {}
-        }
+        self._reset_data()
 
         self.headers = {
             "Content-Length": 0,
@@ -206,6 +194,10 @@ class THTTPJsonProtocol(object):
         }
 
         self._writing = False
+
+    def _reset_data(self):
+        self._data = {"ver": VERSION, "method": '', "args": {}}
+        self._meta = {"soa": {}, "iface": '', "metas": {}}
 
     @staticmethod
     def _thrift_spec_names(spec):
@@ -217,18 +209,15 @@ class THTTPJsonProtocol(object):
     def read_message_begin(self):
         response = httplib.HTTPResponse(_Stream(self.trans))
         response.begin()
-
         assert response.status == 200, "Bad response"
 
         content_type, params = cgi.parse_header(
             response.getheader("Content-Type"))
-
         assert content_type == "application/json", "Content type not json"
 
         payload = response.read()
         encoding = params.get("charset", "utf-8")
         val = json.loads(payload.decode(encoding))
-
         assert val["ver"] == VERSION, "Version mismatch"
 
         self._payload = val
@@ -238,17 +227,22 @@ class THTTPJsonProtocol(object):
     def read_message_end(self):
         self._payload = None
 
-    def write_message_begin(self, name, ttype, seqid):
-        if ttype == TMessageType.CALL:
-            self._writing = True
+    def write_metadata(self, **kwargs):
+        self._meta.update(kwargs)
 
-        self.data["method"] = name
+    def write_message_begin(self, name, ttype, seqid):
+        self._data["method"] = name
+        self._writing = True
 
     def write_message_end(self):
         assert self._writing
-
         self._writing = False
-        data = json.dumps(self.data).encode("utf-8")
+
+        try:
+            self._data.update(self._meta)
+            data = json.dumps(self._data).encode("utf-8")
+        finally:
+            self._reset_data()
 
         self.headers["Content-Length"] = len(data)
         http = _JsonHTTP(self.trans)
@@ -283,7 +277,7 @@ class THTTPJsonProtocol(object):
     def write_struct(self, obj):
         assert self._writing
 
-        self.data["args"] = serialize_args(obj)
+        self._data["args"] = serialize_args(obj)
 
 
 class THTTPJsonProtocolFactory(object):
