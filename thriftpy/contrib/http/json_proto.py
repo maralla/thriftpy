@@ -209,18 +209,28 @@ class THTTPJsonProtocol(object):
     def read_message_begin(self):
         response = httplib.HTTPResponse(_Stream(self.trans))
         response.begin()
-        assert response.status == 200, "Bad response"
+        data = response.read()
 
-        content_type, params = cgi.parse_header(
-            response.getheader("Content-Type"))
+        content_type, encoding = response.getheader("Content-Type"), "utf-8"
+        if content_type:
+            content_type, params = cgi.parse_header(content_type)
+            encoding = params.get("charset", "utf-8")
+
+        status_code = response.status
+        if status_code != 200:
+            try:
+                data = data.decode(encoding)
+            except Exception:
+                pass
+            raise httplib.HTTPException("%d %s, %s" % (
+                status_code, httplib.responses[status_code], data))
+
         assert content_type == "application/json", "Content type not json"
+        payload = json.loads(data.decode(encoding))
 
-        payload = response.read()
-        encoding = params.get("charset", "utf-8")
-        val = json.loads(payload.decode(encoding))
-        assert val["ver"] == VERSION, "Version mismatch"
+        assert payload["ver"] == VERSION, "Version mismatch"
 
-        self._payload = val
+        self._payload = payload
 
         return '', TMessageType.REPLY, None
 
