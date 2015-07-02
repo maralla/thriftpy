@@ -199,13 +199,6 @@ class THTTPJsonProtocol(object):
         self._data = {"ver": VERSION, "method": '', "args": {}}
         self._meta = {"soa": {}, "iface": '', "metas": {}}
 
-    @staticmethod
-    def _thrift_spec_names(spec):
-        res = []
-        for v in spec.values():
-            res.append(v[1])
-        return res
-
     def read_message_begin(self):
         response = httplib.HTTPResponse(_Stream(self.trans))
         response.begin()
@@ -262,22 +255,20 @@ class THTTPJsonProtocol(object):
         assert hasattr(self, "_payload") and self._payload
 
         res = self._payload["result"]
+        res = self._safe_json_loads(res)
 
-        try:
-            res = json.loads(res)
-        except (ValueError, TypeError):
-            pass
+        ex = self._payload.get("ex")
+        if ex:
+            fields = ex.get("fields", {})
+            for k, v in fields.items():
+                fields[k] = self._safe_json_loads(v)
 
-        if self._payload["ex"]:
-            names = self._thrift_spec_names(obj.thrift_spec)
-            if not set(names).difference(["success"]):
+            name = self._get_thrift_exception_name(obj.thrift_spec, ex["cl"])
+            if not name:
                 raise HTTPJsonException(
                     "Undefined exception %s(%r) received." % (
-                        self._payload["ex"]["cl"],
-                        self._payload["ex"]["msg"]))
-
-            exc_name = names[-1]
-            res = {exc_name: self._payload["ex"]}
+                        ex["cl"], ex["msg"]))
+            res = {name: ex}
         else:
             res = {"success": res}
 
@@ -288,6 +279,23 @@ class THTTPJsonProtocol(object):
         assert self._writing
 
         self._data["args"] = serialize_args(obj)
+
+    @staticmethod
+    def _get_thrift_exception_name(spec, ex):
+        name = ex.rsplit('.', 1)[-1]
+        for i, v in spec.items():
+            if i == 0 or len(v) <= 3:
+                continue
+            if name == v[2].__name__:
+                return v[1]
+
+    @staticmethod
+    def _safe_json_loads(text):
+        try:
+            res = json.loads(text)
+        except (ValueError, TypeError):
+            res = text
+        return res
 
 
 class THTTPJsonProtocolFactory(object):
