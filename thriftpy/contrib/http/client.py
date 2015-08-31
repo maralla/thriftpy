@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 
+import contextlib
 import time
 
 from thriftpy.thrift import TClient
 from thriftpy.contrib.tracking import track_thrift, RequestInfo
+from thriftpy.contrib.tracking import TrackerBase
 
 
 class Client(TClient):
@@ -46,3 +48,28 @@ class Client(TClient):
                 annotation=self.tracker.annotation
             )
             self.tracker.record(header_info, exception)
+
+
+@contextlib.contextmanager
+def client_ctx(host, port, service, package_name, timeout=20, tracker=None,
+               keep_alive=True):
+    from thriftpy.transport import TSocket, TBufferedTransport
+    from thriftpy.contrib.http import Client, THTTPJsonProtocol
+
+    socket = TSocket(host, port)
+    socket.set_timeout(timeout)
+
+    trans = TBufferedTransport(socket)
+    proto = THTTPJsonProtocol(trans, keep_alive=keep_alive)
+    trans.open()
+
+    if tracker is None:
+        tracker = TrackerBase("http_client", "unknown")
+
+    service_name = "%s.%s" % (package_name, service.__name__)
+    client = Client(service_name, tracker, service, proto)
+
+    try:
+        yield client
+    finally:
+        trans.close()

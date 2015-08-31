@@ -79,24 +79,37 @@ class _JsonHTTP(httplib.HTTPConnection):
 
         self.trans = trans
 
-    def send(self, data):
-        self.trans.write(data)
-
-    def _send_request(self, method, url, body, headers):
-        self.putrequest(method, url, skip_host=True, skip_accept_encoding=True)
-        for hdr, value in headers.items():
-            self.putheader(hdr, value)
+    def getresponse(self, *args, **kwargs):
         try:
-            self.endheaders(body)
-        except TypeError:
-            self.endheaders()
-            if body:
-                self.send(body)
+            return httplib.HTTPConnection.getresponse(self, *args, **kwargs)
+        except:
+            self.close()
+            raise
+
+    def connect(self):
+        if self.trans.is_open():
+            self.trans.close()
+        self.trans.open()
+        self.sock = _Stream(self.trans)
 
 
 class _Stream(object):
     def __init__(self, stream):
         self.stream = stream
+
+    def _read(self, size):
+        try:
+            return self.stream.read(size)
+        except:
+            self.clean()
+            raise
+
+    def _write(self, data):
+        try:
+            self.stream.write(data)
+        except:
+            self.clean()
+            raise
 
     def makefile(self, *args, **kwargs):
         return self
@@ -108,11 +121,17 @@ class _Stream(object):
             if len(res) == size:
                 break
 
-            data = self.stream.read(1)
+            data = self._read(1)
             if not data:
                 break
             res.append(data)
         return b''.join(res)
+
+    def clean(self):
+        try:
+            self.stream.clean()
+        except Exception:
+            pass
 
     def close(self):
         pass
@@ -120,7 +139,10 @@ class _Stream(object):
     def read(self, size=-1):
         if size < 0:
             raise HTTPJsonException("`size` must be greater or equal than 0")
-        return self.stream.read(size)
+        return self._read(size)
+
+    def sendall(self, data):
+        self._write(data)
 
 
 class Converter(JsonConverter):
@@ -180,9 +202,11 @@ class THTTPJsonProtocol(object):
 
         This protocol can only be used at client side!
     """
-    def __init__(self, trans, uri="/rpc"):
+    def __init__(self, trans, uri="/rpc", keep_alive=True):
         self.trans = trans
         self.uri = uri
+
+        self.http = _JsonHTTP(self.trans)
 
         self._reset_data()
 
@@ -190,8 +214,9 @@ class THTTPJsonProtocol(object):
             "Content-Length": 0,
             "Content-Encoding": "UTF-8",
             "Content-type": "application/json",
-            "Connection": "Keep-Alive"
         }
+        if keep_alive:
+            self.headers["Connection"] = "Keep-Alive"
 
         self._writing = False
 
@@ -200,9 +225,12 @@ class THTTPJsonProtocol(object):
         self._meta = {"soa": {}, "iface": '', "metas": {}}
 
     def read_message_begin(self):
-        response = httplib.HTTPResponse(_Stream(self.trans))
-        response.begin()
-        data = response.read()
+        response = self.http.getresponse()
+        try:
+            data = response.read()
+        except Exception:
+            self.http.close()
+            raise
 
         content_type, encoding = response.getheader("Content-Type"), "utf-8"
         if content_type:
@@ -248,8 +276,7 @@ class THTTPJsonProtocol(object):
             self._reset_data()
 
         self.headers["Content-Length"] = len(data)
-        http = _JsonHTTP(self.trans)
-        http.request("POST", self.uri, body=data, headers=self.headers)
+        self.http.request("POST", self.uri, body=data, headers=self.headers)
 
     def read_struct(self, obj):
         assert hasattr(self, "_payload") and self._payload

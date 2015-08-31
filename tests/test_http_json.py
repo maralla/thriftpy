@@ -6,7 +6,7 @@ from thriftpy.transport import TMemoryBuffer
 from thriftpy.thrift import TPayload, TType, TMessageType
 from thriftpy.contrib.http import THTTPJsonProtocol, HTTPJsonException
 from thriftpy.contrib.http.json_proto import serialize_args, Converter, \
-    TProtocolException
+    TProtocolException, httplib
 
 
 class User(TPayload):
@@ -160,6 +160,8 @@ def test_write_message(http_entity):
                "ver": "1.0", "args": {"name": '"hello"', "id": "123"}}
     headers = set((b'', b'POST /rpc HTTP/1.1',
                    b'Connection: Keep-Alive',
+                   b'Host: ',
+                   b'Accept-Encoding: identity',
                    ('Content-Length: %d' % len(json.dumps(payload))).encode("ascii"),  # noqa
                    b'Content-Encoding: UTF-8',
                    b'Content-type: application/json'))
@@ -185,6 +187,8 @@ def test_read_message(res_struct, http_entity):
 
     t = TMemoryBuffer(http_entity.data)
     p = THTTPJsonProtocol(t)
+    p.http._HTTPConnection__state = httplib._CS_REQ_SENT
+    p.http.connect()
 
     r = res_struct().Result()
 
@@ -210,6 +214,8 @@ def test_read_message_with_ex(res_struct, http_entity):
 
     t = TMemoryBuffer(http_entity.data)
     p = THTTPJsonProtocol(t)
+    p.http._HTTPConnection__state = httplib._CS_REQ_SENT
+    p.http.connect()
 
     r = res_struct(spec=(TType.STRUCT, "exc", UserException, False)).Result()
 
@@ -237,6 +243,8 @@ def test_read_message_with_ex_raised(res_struct, http_entity):
 
     t = TMemoryBuffer(http_entity.data)
     p = THTTPJsonProtocol(t)
+    p.http._HTTPConnection__state = httplib._CS_REQ_SENT
+    p.http.connect()
 
     r = res_struct().Result()
 
