@@ -5,7 +5,7 @@ from __future__ import absolute_import
 import json
 import struct
 
-from thriftpy.thrift import TType
+from thriftpy.thrift import TType, TDecodeException
 
 from .exc import TProtocolException
 
@@ -126,12 +126,22 @@ class JsonConverter(object):
 
     @classmethod
     def thrift_struct(cls, val, obj):
+        if not val:
+            return obj
+
         for fid, field_spec in obj.thrift_spec.items():
             ttype, field_name, field_type_spec = cls.parse_spec(field_spec)
 
-            if field_name in val:
-                v = cls.thrift_value(ttype, val[field_name], field_type_spec)
-                setattr(obj, field_name, v)
+            raw_val = val.get(field_name)
+            if raw_val is None:
+                continue
+
+            try:
+                v = cls.thrift_value(ttype, raw_val, field_type_spec)
+            except (TypeError, ValueError, AttributeError):
+                raise TDecodeException(obj.__class__.__name__, fid, field_name,
+                                       raw_val, ttype, field_type_spec)
+            setattr(obj, field_name, v)
         return obj
 
 

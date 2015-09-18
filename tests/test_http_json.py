@@ -253,3 +253,30 @@ def test_read_message_with_ex_raised(res_struct, http_entity):
         p.read_struct(r)
         p.read_message_end()
     assert "Undefined exception" in str(exc.value)
+
+
+def test_read_message_with_none_field(res_struct, http_entity):
+    result = {"name": "hello", "id": None}
+
+    payload = {
+        "ver": "1.0",
+        "soa": {"req": None},
+        "result": json.dumps(result),
+        "ex": None
+    }
+
+    http_entity.length = len(json.dumps(payload))
+    http_entity.payload = payload
+
+    t = TMemoryBuffer(http_entity.data)
+    p = THTTPJsonProtocol(t)
+    p.http._HTTPConnection__state = httplib._CS_REQ_SENT
+    p.http.connect()
+
+    r = res_struct().Result()
+
+    p.read_message_begin()
+    p.read_struct(r)
+    p.read_message_end()
+
+    assert r.success == User(name="hello", id=None)
