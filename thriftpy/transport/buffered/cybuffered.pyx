@@ -24,6 +24,10 @@ cdef class TCyBufferedTransport(CyTransportBase):
         self.rbuf = TCyBuffer(buf_size)
         self.wbuf = TCyBuffer(buf_size)
 
+    @property
+    def handle(self):
+        return self.trans.handle if hasattr(self.trans, "handle") else None
+
     def clean(self):
         self.rbuf.clean()
         self.wbuf.clean()
